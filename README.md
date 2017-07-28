@@ -1,2 +1,2 @@
 # Memlay
-MEMory LAYout Application
+MEMory LAYout Parser
