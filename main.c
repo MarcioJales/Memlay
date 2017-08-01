@@ -49,6 +49,16 @@ void* mapMemory(char* path, int* fd)
   return mem_map;  
 };
 
+void checkBinary(uint8_t* map)
+{
+  printf(GREEN "Checking binary file...\n" CLEAR);
+  
+  if(map[0] != 0x7f || strncmp((char*) map+1, "ELF", 3)) {
+    printf(RED "Error: " CLEAR "the file specified is not a ELF binary.\n");
+    exit(EXIT_FAILURE);
+  }
+}
+
 char** parseArgs(char** argv_l, int argc_l)
 {
   char** args;
@@ -89,6 +99,7 @@ int main(int argc, char** argv)
   Elf64_Shdr* section_hdr;
 
   mapped_mem = mapMemory(argv[2], &fd);
+  checkBinary((uint8_t*) mapped_mem);
   args_parsed = parseArgs(argv, argc);
   
   pid_child = fork();
