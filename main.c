@@ -31,7 +31,7 @@ char** parseArgs(char** argv_l, int argc_l)
       args[count] = NULL;
     count++;
   }
-  q
+
   return args;
 };
 
