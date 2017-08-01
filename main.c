@@ -4,11 +4,50 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <elf.h>
+#include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/ptrace.h>
+#include <sys/wait.h>
 
 #define RED     "\x1b[31m"
+#define GREEN   "\x1b[32m"
 #define CLEAR   "\x1b[0m"
+
+void* mapMemory(char* path, int* fd)
+{
+  struct stat file_info;
+  void* mem_map;
+
+  printf(GREEN "Mapping memory...\n" CLEAR);
+  
+  *fd = open(path, O_RDONLY);
+
+  if(*fd == -1) {
+    fprintf(stderr, RED "Failed to open: %s\n" CLEAR, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  if(fstat(*fd, &file_info) == -1) {
+    fprintf(stderr, RED "Failed to get file information: %s\n" CLEAR, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  mem_map = mmap(NULL, file_info.st_size, PROT_READ, MAP_PRIVATE, *fd, 0);
+
+  if(mem_map == MAP_FAILED) {
+    fprintf(stderr, RED "Failed to map memmory: %s\n" CLEAR, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  if(close(*fd) == -1) {
+    fprintf(stderr, "Failed to close: %s\n", strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+  
+  return mem_map;  
+};
 
 char** parseArgs(char** argv_l, int argc_l)
 {
@@ -16,6 +55,8 @@ char** parseArgs(char** argv_l, int argc_l)
   int num_args = argc_l - 1;
   int count = 0;
 
+  printf(GREEN "Parsing arguments...\n" CLEAR);
+  
   args = (char**) malloc(num_args*sizeof(char*));
   
   while(count < num_args) {
@@ -37,6 +78,7 @@ char** parseArgs(char** argv_l, int argc_l)
 
 int main(int argc, char** argv)
 {
+  int fd;
   pid_t pid_child;
   Elf64_Addr sym_addr;
   char* sym_name;
@@ -46,6 +88,7 @@ int main(int argc, char** argv)
   Elf64_Phdr* program_hdr;
   Elf64_Shdr* section_hdr;
 
+  mapped_mem = mapMemory(argv[2], &fd);
   args_parsed = parseArgs(argv, argc);
   
   pid_child = fork();
