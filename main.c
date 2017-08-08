@@ -223,6 +223,8 @@ void parseMapsFile(char *maps_path, char *prog_path)
   }
   else
     fprintf(stderr, RED "File described in \"maps\" do not match the tracee\n" CLEAR);
+
+  fclose(fs);
 };
 
 
