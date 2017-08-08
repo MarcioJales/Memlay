@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
+#include <sys/user.h>
 
 
 #define RED                "\x1b[31m"
@@ -61,6 +62,8 @@ void* mapMemory(char* path)
 };
 
 
+
+
 Elf64_Addr lookupSymbol(Elf64_Ehdr* elf_hdr, Elf64_Shdr* section_hdr, char* symbol, uint8_t* file_begin)
 {
   int count;
@@ -96,6 +99,8 @@ Elf64_Addr lookupSymbol(Elf64_Ehdr* elf_hdr, Elf64_Shdr* section_hdr, char* symb
 };
 
 
+
+
 Elf64_Addr checkBinary(uint8_t* map, char* symbol)
 {
   Elf64_Ehdr* elf_hdr; 
@@ -124,6 +129,8 @@ Elf64_Addr checkBinary(uint8_t* map, char* symbol)
 };
 
 
+
+
 char** parseArgs(char** argv, int argc)
 {
   char** args;
@@ -149,6 +156,8 @@ char** parseArgs(char** argv, int argc)
 
   return args;
 };
+
+
 
 
 void getSection(FILE *fs, char *readbuf, uint8_t section)
@@ -195,6 +204,8 @@ void getSection(FILE *fs, char *readbuf, uint8_t section)
 };
 
 
+
+
 void parseMapsFile(char *maps_path, char *prog_path)
 {
   FILE *fs;
@@ -228,12 +239,13 @@ void parseMapsFile(char *maps_path, char *prog_path)
 };
 
 
+
+
 void printLayout(pid_t pid, char* prog_path)
 {
   char* maps_path = (char*) malloc(16); /* 'pid' may have at most 5 digits */
   
   printf(YELLOW "\nPrinting the layout:\n" CLEAR);
-
   if(sprintf(maps_path, "/proc/%d/maps", pid) < 0)
     fprintf(stderr, RED "Error to parse the path to \"maps\"\n" CLEAR);
 
@@ -241,10 +253,48 @@ void printLayout(pid_t pid, char* prog_path)
 };
 
 
+
+
+void adjustRegisters(pid_t pid, Elf64_Addr sym_addr, long orig_data, long trap)
+{
+  struct user_regs_struct registers;
+
+  if(ptrace(PTRACE_GETREGS, pid, NULL, &registers) == -1) {
+    fprintf(stderr, RED "Failed to get registers information: %s\n" CLEAR, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+  
+  if(ptrace(PTRACE_POKEDATA, pid, sym_addr, orig_data) == -1) {
+    fprintf(stderr, RED "Failed to poke data: %s\n" CLEAR, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+  
+  registers.rip = registers.rip - 1;
+  if(ptrace(PTRACE_SETREGS, pid, NULL, &registers) == -1) {
+    fprintf(stderr, RED "Failed to get registers information: %s\n" CLEAR, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  if(ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL) == -1) {
+    fprintf(stderr, RED "Failed to continue the tracing: %s\n" CLEAR, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+  wait(NULL);
+  
+  if(ptrace(PTRACE_POKEDATA, pid, sym_addr, trap) == -1) {
+    fprintf(stderr, RED "Failed to poke data: %s\n" CLEAR, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+  
+};
+
+
+
+
 int main(int argc, char** argv)
 {
   int status;
-  long orig_data,  trap; /* The 'trap' is the opcode '0xcc', which means that, ate that address, the execution must stop */
+  long orig_data, trap; /* The 'trap' is the opcode '0xcc', which means that, ate that address, the execution must stop */
   pid_t pid_child;
   Elf64_Addr sym_addr;
   char** args_parsed; 
@@ -269,6 +319,7 @@ int main(int argc, char** argv)
   }
   else
     printf(GREEN "Symbol found\n" CLEAR);
+  printf(YELLOW "Breakpoint at %lx\n" CLEAR, sym_addr);
   
   args_parsed = parseArgs(argv, argc);
   
@@ -290,7 +341,7 @@ int main(int argc, char** argv)
   }
 
   wait(&status);
-  printf(YELLOW "Beginning of the analysis of process %d (%s), for the breakpoint at %lx\n" CLEAR, pid_child, prog_path, sym_addr);
+  printf(YELLOW "Beginning of the analysis of process %d (%s)\n" CLEAR, pid_child, prog_path);
 
   /* Since  the  value  returned by a successful PTRACE_PEEK* request may be
    * -1, the caller must clear errno before the  call,  and  then  check  it
@@ -298,7 +349,8 @@ int main(int argc, char** argv)
    */
   
   errno = 0;
-  if(ptrace(PTRACE_PEEKDATA, pid_child, sym_addr, NULL) == -1) {
+  orig_data = ptrace(PTRACE_PEEKDATA, pid_child, sym_addr, NULL);
+  if(orig_data == -1) {
     if(errno != 0) {
       fprintf(stderr, RED "Failed to peek data: %s\n" CLEAR, strerror(errno));
       exit(EXIT_FAILURE);
@@ -319,9 +371,15 @@ int main(int argc, char** argv)
     wait(&status);
     
     if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
-      printf(YELLOW "Hit the breakpoint\n" CLEAR);
+      printf(YELLOW "Hit the breakpoint %lx\n" CLEAR, sym_addr);
+
       printLayout(pid_child, prog_path);
-      exit(EXIT_SUCCESS);
+      adjustRegisters(pid_child, sym_addr, orig_data, trap);
+    }
+
+    if(WIFEXITED(status)) {
+      printf(YELLOW "\nCompleted tracing pid %d\n" CLEAR, pid_child);
+      break;
     }
   }
   
