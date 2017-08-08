@@ -8,4 +8,4 @@ IMPLEMENTATION ON PROGRESS
 Ready for one breakpoint analysis.
 
 # Usage
-memlay \<breakpoint\> executable \<args\>
+memlay \<breakpoint\> \<executable\> \<args\>
