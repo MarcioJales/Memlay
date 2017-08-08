@@ -5,5 +5,7 @@ MEMory LAYout Parser
 
 IMPLEMENTATION ON PROGRESS
 
+Ready for one breakpoint analysis.
+
 # Usage
 memlay \<breakpoint\> executable \<args\>
