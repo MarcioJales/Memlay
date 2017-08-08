@@ -1,3 +1,5 @@
+#include <unistd.h>
+#include <stdlib.h>
 
 int sum(int c)
 {
@@ -21,6 +23,7 @@ void prod(int s, int c)
 int main(char** argv, int argc)
 {
 	int res;
+	int *t = malloc(16);
 	res = sum(argc);
 	prod(res, argc);
 
