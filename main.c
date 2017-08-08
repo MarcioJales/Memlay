@@ -181,7 +181,7 @@ void getSection(FILE *fs, char *readbuf, uint8_t section)
   fgets(readbuf, BUF_LENGTH, fs);
   if(section == HEAP) {
     if(strncmp(readbuf + 74, "heap", 4)) {
-	printf(RED "None" CLEAR);
+	printf(RED "None\n" CLEAR);
 	fseek(fs, offset, SEEK_SET);
 	return;
     }
