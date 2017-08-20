@@ -35,7 +35,7 @@ void* mapMemory(char* path)
   void* mem_map;
 
   printf(YELLOW "Mapping memory...\n" CLEAR);
-  
+
   fd = open(path, O_RDONLY);
   if(fd == -1) {
     fprintf(stderr, RED "Failed to open: %s\n" CLEAR, strerror(errno));
@@ -57,8 +57,8 @@ void* mapMemory(char* path)
     fprintf(stderr, RED "Failed to close: %s\n" CLEAR, strerror(errno));
     exit(EXIT_FAILURE);
   }
-  
-  return mem_map;  
+
+  return mem_map;
 };
 
 
@@ -75,18 +75,18 @@ Elf64_Addr lookupSymbol(Elf64_Ehdr* elf_hdr, Elf64_Shdr* section_hdr, char* symb
    * section_hdr[count].sh_offset = beginning of section
    * sh_link when sh_type = SHT_SYMTAB means that it holds the index to the string table section
    */
-  
+
   for(count = 0; count < elf_hdr->e_shnum; count++) {
     if(section_hdr[count].sh_type == SHT_SYMTAB) {
       sym_table = (Elf64_Sym*) (file_begin + section_hdr[count].sh_offset);
-      
+
       str_index = section_hdr[count].sh_link;
       str_table = (char*) (file_begin + section_hdr[str_index].sh_offset);
 
-      /* Iterate over the symbol tables in the .symtab section 
-       * st_value holds the entry point (address) of the function represented by the symbol 
+      /* Iterate over the symbol tables in the .symtab section
+       * st_value holds the entry point (address) of the function represented by the symbol
        */
-      
+
       int j;
       for(j = 0; j < section_hdr[count].sh_size/sizeof(Elf64_Sym); j++) {
 	if(strcmp(&str_table[sym_table->st_name], symbol) == 0)
@@ -103,11 +103,11 @@ Elf64_Addr lookupSymbol(Elf64_Ehdr* elf_hdr, Elf64_Shdr* section_hdr, char* symb
 
 Elf64_Addr checkBinary(uint8_t* map, char* symbol)
 {
-  Elf64_Ehdr* elf_hdr; 
+  Elf64_Ehdr* elf_hdr;
   Elf64_Shdr* section_hdr;
-  
+
   printf(YELLOW "Checking binary file...\n" CLEAR);
-  
+
   if(map[0] != 0x7f || strncmp((char*) map+1, "ELF", 3)) {
     printf(RED "Error: " CLEAR "the file specified is not a ELF binary.\n");
     exit(EXIT_FAILURE);
@@ -125,36 +125,7 @@ Elf64_Addr checkBinary(uint8_t* map, char* symbol)
   else
     section_hdr = (Elf64_Shdr*)(map + elf_hdr->e_shoff);
 
-  return lookupSymbol(elf_hdr, section_hdr, symbol, map); 
-};
-
-
-
-
-char** parseArgs(char** argv, int argc)
-{
-  char** args;
-  int num_args = argc - 1;
-  int count = 0;
-
-  printf(YELLOW "Parsing arguments...\n" CLEAR);
-  
-  args = (char**) malloc(num_args*sizeof(char*));  
-  while(count < num_args) {
-    if(count != num_args-1) {
-      args[count] = strdup(argv[count+2]);
-      
-      if(args[count] == NULL) {
-	fprintf(stderr, RED "Failed to strdup: %s\n" CLEAR, strerror(errno));
-	exit(EXIT_FAILURE);
-      }	
-    }
-    else
-      args[count] = NULL;
-    count++;
-  }
-
-  return args;
+  return lookupSymbol(elf_hdr, section_hdr, symbol, map);
 };
 
 
@@ -173,11 +144,11 @@ void getSection(FILE *fs, char *readbuf, uint8_t section)
     printf(GREEN "[Bss section]\n" CLEAR);
   if(section == HEAP)
     printf(GREEN "[Heap]\n" CLEAR);
-  if(section == STACK) 
+  if(section == STACK)
     printf(GREEN "[Stack]\n" CLEAR);
 
   offset = ftell(fs);
-  
+
   fgets(readbuf, BUF_LENGTH, fs);
   if(section == HEAP) {
     if(strncmp(readbuf + 74, "heap", 4)) {
@@ -193,11 +164,11 @@ void getSection(FILE *fs, char *readbuf, uint8_t section)
     }
     fseek(fs, offset, SEEK_SET);
   }
-    
+
   start_addr = strtok(readbuf, "-");
   printf(GREEN "%s" CLEAR, start_addr);
 
-  fseek(fs, offset + strlen(start_addr), SEEK_SET); 
+  fseek(fs, offset + strlen(start_addr), SEEK_SET);
   fgets(readbuf, BUF_LENGTH, fs);
   end_addr = strtok(readbuf, " ");
   printf(GREEN "%s\n" CLEAR, end_addr);
@@ -218,15 +189,15 @@ void parseMapsFile(char *maps_path, char *prog_path)
     fprintf(stderr, RED "Failed to open: %s\n" CLEAR, strerror(errno));
     exit(EXIT_FAILURE);
   }
-    
+
   /* 73 is the offset to get to the pathname of the file */
   if(fseek(fs, 73, SEEK_SET) == -1) {
     fprintf(stderr, RED "Failed to operate on the file: %s\n" CLEAR, strerror(errno));
     exit(EXIT_FAILURE);
-  }  
+  }
   fgets(readbuf, BUF_LENGTH, fs);
   rewind(fs);
-  
+
   basename_prog = basename(prog_path);
   if(!strncmp(basename_prog, basename(readbuf), strlen(basename_prog))) {
     for(section = 0; section < 5; section++)
@@ -244,7 +215,7 @@ void parseMapsFile(char *maps_path, char *prog_path)
 void printLayout(pid_t pid, char* prog_path)
 {
   char* maps_path = (char*) malloc(16); /* 'pid' may have at most 5 digits */
-  
+
   printf(YELLOW "\nPrinting the layout:\n" CLEAR);
   if(sprintf(maps_path, "/proc/%d/maps", pid) < 0)
     fprintf(stderr, RED "Error to parse the path to \"maps\"\n" CLEAR);
@@ -263,12 +234,12 @@ void adjustRegisters(pid_t pid, Elf64_Addr sym_addr, long orig_data, long trap)
     fprintf(stderr, RED "Failed to get registers information: %s\n" CLEAR, strerror(errno));
     exit(EXIT_FAILURE);
   }
-  
+
   if(ptrace(PTRACE_POKEDATA, pid, sym_addr, orig_data) == -1) {
     fprintf(stderr, RED "Failed to poke data: %s\n" CLEAR, strerror(errno));
     exit(EXIT_FAILURE);
   }
-  
+
   registers.rip = registers.rip - 1;
   if(ptrace(PTRACE_SETREGS, pid, NULL, &registers) == -1) {
     fprintf(stderr, RED "Failed to get registers information: %s\n" CLEAR, strerror(errno));
@@ -280,12 +251,12 @@ void adjustRegisters(pid_t pid, Elf64_Addr sym_addr, long orig_data, long trap)
     exit(EXIT_FAILURE);
   }
   wait(NULL);
-  
+
   if(ptrace(PTRACE_POKEDATA, pid, sym_addr, trap) == -1) {
     fprintf(stderr, RED "Failed to poke data: %s\n" CLEAR, strerror(errno));
     exit(EXIT_FAILURE);
   }
-  
+
 };
 
 
@@ -297,7 +268,6 @@ int main(int argc, char** argv)
   long orig_data, trap; /* The 'trap' is the opcode '0xcc', which means that, ate that address, the execution must stop */
   pid_t pid_child;
   Elf64_Addr sym_addr;
-  char** args_parsed; 
   void* mapped_mem;
 
   if(argc < 3) {
@@ -307,10 +277,10 @@ int main(int argc, char** argv)
 
   char* sym_name = (char*) malloc(strlen(argv[1]));
   char* prog_path = (char*) malloc(strlen(argv[2]));
-  
+
   strcpy(prog_path, argv[2]);
   mapped_mem = mapMemory(prog_path);
-  
+
   strcpy(sym_name, argv[1]);
   sym_addr = checkBinary((uint8_t*) mapped_mem, sym_name);
   if(sym_addr == 0) {
@@ -320,20 +290,18 @@ int main(int argc, char** argv)
   else
     printf(GREEN "Symbol found\n" CLEAR);
   printf(YELLOW "Breakpoint at %lx\n" CLEAR, sym_addr);
-  
-  args_parsed = parseArgs(argv, argc);
-  
-  pid_child = fork();  
+
+  pid_child = fork();
   if(pid_child == -1) {
     fprintf(stderr, RED "Failed to fork: %s\n" CLEAR, strerror(errno));
     exit(EXIT_FAILURE);
-  }  
+  }
   if (pid_child == 0) {
     if(ptrace(PTRACE_TRACEME, 0, NULL, NULL) == -1) {
       fprintf(stderr, RED "Failed to start tracing: %s\n" CLEAR, strerror(errno));
       exit(EXIT_FAILURE);
     }
-    if(execv(prog_path, args_parsed) == -1) {
+    if(execv(prog_path, argv + 2) == -1) {
       fprintf(stderr, RED "Failed to start the tracee: %s\n" CLEAR, strerror(errno));
       exit(EXIT_FAILURE);
     }
@@ -345,9 +313,9 @@ int main(int argc, char** argv)
 
   /* Since  the  value  returned by a successful PTRACE_PEEK* request may be
    * -1, the caller must clear errno before the  call,  and  then  check  it
-   * afterward to determine whether or not an error occurred. 
+   * afterward to determine whether or not an error occurred.
    */
-  
+
   errno = 0;
   orig_data = ptrace(PTRACE_PEEKDATA, pid_child, sym_addr, NULL);
   if(orig_data == -1) {
@@ -369,7 +337,7 @@ int main(int argc, char** argv)
       exit(EXIT_FAILURE);
     }
     wait(&status);
-    
+
     if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
       printf(YELLOW "Hit the breakpoint %lx\n" CLEAR, sym_addr);
 
@@ -382,6 +350,6 @@ int main(int argc, char** argv)
       break;
     }
   }
-  
+
   return 0;
 }
