@@ -23,8 +23,9 @@ void prod(int s, int c)
 int main(char** argv, int argc)
 {
 	int res;
-	int *t = malloc(16);
+	int *t = malloc(65536);
 	res = sum(argc);
+	int *r = malloc(65536);
 	prod(res, argc);
 
 	return 0;

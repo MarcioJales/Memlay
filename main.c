@@ -64,11 +64,11 @@ void* mapMemory(char* path)
 
 
 
-Elf64_Addr lookupSymbol(Elf64_Ehdr* elf_hdr, Elf64_Shdr* section_hdr, char* symbol, uint8_t* file_begin)
+Elf64_Addr lookupSymbol(Elf64_Ehdr *elf_hdr, Elf64_Shdr *section_hdr, char *symbol, uint8_t *file_begin)
 {
   int count;
-  Elf64_Sym* sym_table;
-  char* str_table;
+  Elf64_Sym *sym_table;
+  char *str_table, *match_sym;
   int str_index;
 
   /* section_hdr[count] = beginning of section header
@@ -89,9 +89,12 @@ Elf64_Addr lookupSymbol(Elf64_Ehdr* elf_hdr, Elf64_Shdr* section_hdr, char* symb
 
       int j;
       for(j = 0; j < section_hdr[count].sh_size/sizeof(Elf64_Sym); j++) {
-	if(strcmp(&str_table[sym_table->st_name], symbol) == 0)
-	  return sym_table->st_value;
-	sym_table++;
+        match_sym = strstr(&str_table[sym_table->st_name], symbol);
+        if(match_sym != NULL) {
+          if(strncmp(match_sym, symbol, strlen(symbol)) == 0)
+            return sym_table->st_value;
+        }
+        sym_table++;
       }
     }
   }
@@ -152,9 +155,9 @@ void getSection(FILE *fs, char *readbuf, uint8_t section)
   fgets(readbuf, BUF_LENGTH, fs);
   if(section == HEAP) {
     if(strncmp(readbuf + 74, "heap", 4)) {
-	printf(RED "None\n" CLEAR);
-	fseek(fs, offset, SEEK_SET);
-	return;
+      printf(RED "None\n" CLEAR);
+	    fseek(fs, offset, SEEK_SET);
+      return;
     }
   }
   if(section == STACK) {
@@ -216,11 +219,13 @@ void printLayout(pid_t pid, char* prog_path)
 {
   char* maps_path = (char*) malloc(16); /* 'pid' may have at most 5 digits */
 
+  printf("\n\n");
   printf(YELLOW "\nPrinting the layout:\n" CLEAR);
   if(sprintf(maps_path, "/proc/%d/maps", pid) < 0)
     fprintf(stderr, RED "Error to parse the path to \"maps\"\n" CLEAR);
 
   parseMapsFile(maps_path, prog_path);
+  printf("\n\n");
 };
 
 
