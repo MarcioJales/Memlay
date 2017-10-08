@@ -1,7 +1,7 @@
 # Memlay
 Memory Layout Parser
 
-"memlay" prints the memory application's layout (i.e. text, data, heap and stack segments) in a given breakpoint of execution.
+`memlay` prints the memory application's layout (i.e. text, data, heap and stack segments) in a given breakpoint of execution. It is very similar to `pmap`, since it reads the `/proc/<pid>/maps`file.
 
 # Implementation
 
