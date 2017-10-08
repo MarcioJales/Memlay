@@ -68,14 +68,13 @@ Elf64_Addr lookupSymbol(Elf64_Ehdr *elf_hdr, Elf64_Shdr *section_hdr, char *symb
 {
   int count;
   Elf64_Sym *sym_table;
-  char *str_table, *match_sym;
+  char *str_table;
   int str_index;
 
   /* section_hdr[count] = beginning of section header
    * section_hdr[count].sh_offset = beginning of section
    * sh_link when sh_type = SHT_SYMTAB means that it holds the index to the string table section
    */
-
   for(count = 0; count < elf_hdr->e_shnum; count++) {
     if(section_hdr[count].sh_type == SHT_SYMTAB) {
       sym_table = (Elf64_Sym*) (file_begin + section_hdr[count].sh_offset);
@@ -86,14 +85,10 @@ Elf64_Addr lookupSymbol(Elf64_Ehdr *elf_hdr, Elf64_Shdr *section_hdr, char *symb
       /* Iterate over the symbol tables in the .symtab section
        * st_value holds the entry point (address) of the function represented by the symbol
        */
-
       int j;
       for(j = 0; j < section_hdr[count].sh_size/sizeof(Elf64_Sym); j++) {
-        match_sym = strstr(&str_table[sym_table->st_name], symbol);
-        if(match_sym != NULL) {
-          if(strncmp(match_sym, symbol, strlen(symbol)) == 0)
-            return sym_table->st_value;
-        }
+        if(strncmp(&str_table[sym_table->st_name], symbol, strlen(symbol)) == 0)
+          return sym_table->st_value;
         sym_table++;
       }
     }
