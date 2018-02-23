@@ -95,13 +95,11 @@ void printLayout(pid_t pid, char* prog_path)
 {
   char* maps_path = (char*) malloc(16); /* 'pid' may have at most 5 digits */
 
-  printf("\n\n");
-  printf(YELLOW "\nPrinting the layout:\n" CLEAR);
+  printf(YELLOW "\nPrinting the layout:\n\n" CLEAR);
   if(sprintf(maps_path, "/proc/%d/maps", pid) < 0)
     fprintf(stderr, RED "Error to parse the path to \"maps\"\n" CLEAR);
 
   parseMapsFile(maps_path, prog_path);
-  printf("\n\n");
 };
 
 
