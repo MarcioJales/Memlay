@@ -1,23 +1,9 @@
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <elf.h>
-#include <fcntl.h>
 #include <libgen.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/user.h>
-
-
-#define RED                "\x1b[31m"
-#define GREEN              "\x1b[32m"
-#define CLEAR              "\x1b[0m"
-#define YELLOW             "\x1b[33m"
+#include "ret_dwarf.h"
 
 #define BUF_LENGTH          256
 
@@ -26,107 +12,6 @@
 #define BSS                 2
 #define HEAP                3
 #define STACK               4
-
-
-void* mapMemory(char* path)
-{
-  struct stat file_info;
-  int fd;
-  void* mem_map;
-
-  printf(YELLOW "Mapping memory...\n" CLEAR);
-
-  fd = open(path, O_RDONLY);
-  if(fd == -1) {
-    fprintf(stderr, RED "Failed to open: %s\n" CLEAR, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  if(fstat(fd, &file_info) == -1) {
-    fprintf(stderr, RED "Failed to get file information: %s\n" CLEAR, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  mem_map = mmap(NULL, file_info.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-  if(mem_map == MAP_FAILED) {
-    fprintf(stderr, RED "Failed to map memmory: %s\n" CLEAR, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  if(close(fd) == -1) {
-    fprintf(stderr, RED "Failed to close: %s\n" CLEAR, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  return mem_map;
-};
-
-
-
-
-Elf64_Addr lookupSymbol(Elf64_Ehdr *elf_hdr, Elf64_Shdr *section_hdr, char *symbol, uint8_t *file_begin)
-{
-  int count;
-  Elf64_Sym *sym_table;
-  char *str_table;
-  int str_index;
-
-  /* section_hdr[count] = beginning of section header
-   * section_hdr[count].sh_offset = beginning of section
-   * sh_link when sh_type = SHT_SYMTAB means that it holds the index to the string table section
-   */
-  for(count = 0; count < elf_hdr->e_shnum; count++) {
-    if(section_hdr[count].sh_type == SHT_SYMTAB) {
-      sym_table = (Elf64_Sym*) (file_begin + section_hdr[count].sh_offset);
-
-      str_index = section_hdr[count].sh_link;
-      str_table = (char*) (file_begin + section_hdr[str_index].sh_offset);
-
-      /* Iterate over the symbol tables in the .symtab section
-       * st_value holds the entry point (address) of the function represented by the symbol
-       */
-      int j;
-      for(j = 0; j < section_hdr[count].sh_size/sizeof(Elf64_Sym); j++) {
-        if(strncmp(&str_table[sym_table->st_name], symbol, strlen(symbol)) == 0)
-          return sym_table->st_value;
-        sym_table++;
-      }
-    }
-  }
-  return 0;
-};
-
-
-
-
-Elf64_Addr checkBinary(uint8_t* map, char* symbol)
-{
-  Elf64_Ehdr* elf_hdr;
-  Elf64_Shdr* section_hdr;
-
-  printf(YELLOW "Checking binary file...\n" CLEAR);
-
-  if(map[0] != 0x7f || strncmp((char*) map+1, "ELF", 3)) {
-    printf(RED "Error: " CLEAR "the file specified is not a ELF binary.\n");
-    exit(EXIT_FAILURE);
-  }
-
-  elf_hdr = (Elf64_Ehdr*) map;
-  if(elf_hdr->e_type != ET_EXEC) {
-    printf(RED "Error: " CLEAR "the file specified is not a ELF executable.\n");
-    exit(EXIT_FAILURE);
-  }
-  if(elf_hdr->e_shoff == 0 || elf_hdr->e_shnum == 0 || elf_hdr->e_shstrndx == SHN_UNDEF) {
-    printf(RED "Error: " CLEAR "section header table or section name string table were not found.\n");
-    exit(EXIT_FAILURE);
-  }
-  else
-    section_hdr = (Elf64_Shdr*)(map + elf_hdr->e_shoff);
-
-  return lookupSymbol(elf_hdr, section_hdr, symbol, map);
-};
-
-
 
 
 void getSection(FILE *fs, char *readbuf, uint8_t section)
@@ -173,8 +58,6 @@ void getSection(FILE *fs, char *readbuf, uint8_t section)
 };
 
 
-
-
 void parseMapsFile(char *maps_path, char *prog_path)
 {
   FILE *fs;
@@ -208,8 +91,6 @@ void parseMapsFile(char *maps_path, char *prog_path)
 };
 
 
-
-
 void printLayout(pid_t pid, char* prog_path)
 {
   char* maps_path = (char*) malloc(16); /* 'pid' may have at most 5 digits */
@@ -224,9 +105,7 @@ void printLayout(pid_t pid, char* prog_path)
 };
 
 
-
-
-void adjustRegisters(pid_t pid, Elf64_Addr sym_addr, long orig_data, long trap)
+void adjustRegisters(pid_t pid, Dwarf_Addr sym_addr, long orig_data, long trap)
 {
   struct user_regs_struct registers;
 
@@ -260,15 +139,12 @@ void adjustRegisters(pid_t pid, Elf64_Addr sym_addr, long orig_data, long trap)
 };
 
 
-
-
 int main(int argc, char** argv)
 {
   int status;
   long orig_data, trap; /* The 'trap' is the opcode '0xcc', which means that, ate that address, the execution must stop */
   pid_t pid_child;
-  Elf64_Addr sym_addr;
-  void* mapped_mem;
+  Dwarf_Addr sym_addr;
 
   if(argc < 3) {
     printf("Usage: memlay <breakpoint> <program>\n");
@@ -279,17 +155,16 @@ int main(int argc, char** argv)
   char* prog_path = (char*) malloc(strlen(argv[2]));
 
   strcpy(prog_path, argv[2]);
-  mapped_mem = mapMemory(prog_path);
-
   strcpy(sym_name, argv[1]);
-  sym_addr = checkBinary((uint8_t*) mapped_mem, sym_name);
+
+  sym_addr = dwarfAnalysis(prog_path, sym_name);
   if(sym_addr == 0) {
     fprintf(stderr, RED "Error: " CLEAR "symbol not found\n");
     exit(EXIT_FAILURE);
   }
   else
     printf(GREEN "Symbol found\n" CLEAR);
-  printf(YELLOW "Breakpoint at %lx\n" CLEAR, sym_addr);
+  printf(YELLOW "Breakpoint at %llx\n" CLEAR, sym_addr);
 
   pid_child = fork();
   if(pid_child == -1) {
@@ -339,7 +214,7 @@ int main(int argc, char** argv)
     wait(&status);
 
     if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
-      printf(YELLOW "Hit the breakpoint %lx\n" CLEAR, sym_addr);
+      printf(YELLOW "Hit the breakpoint %llx\n" CLEAR, sym_addr);
 
       printLayout(pid_child, prog_path);
       adjustRegisters(pid_child, sym_addr, orig_data, trap);
