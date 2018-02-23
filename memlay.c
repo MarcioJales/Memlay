@@ -3,7 +3,7 @@
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/user.h>
-#include "ret_dwarf.h"
+#include "retdwarf.h"
 
 #define BUF_LENGTH          256
 
