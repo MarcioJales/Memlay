@@ -11,9 +11,13 @@ The program uses de `libdwarf` to retrive the function's address from DWARF form
 
 Memlay was not extensively tested.
 
-# Current features
+# Current progress
 
-Implementation of the DWARF analysis feature on progress.
+Just the first function on the DWARF scheme is being found. Fix in progress.
+
+Only one breakpoint may be determined.
+
+Verbose execution only.
 
 # Usage
 memlay \<breakpoint\> \<executable\> \<args\>
