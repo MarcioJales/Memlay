@@ -100,6 +100,7 @@ void printLayout(pid_t pid, char* prog_path)
     fprintf(stderr, RED "Error to parse the path to \"maps\"\n" CLEAR);
 
   parseMapsFile(maps_path, prog_path);
+  printf("\n");
 };
 
 
@@ -219,7 +220,7 @@ int main(int argc, char** argv)
     }
 
     if(WIFEXITED(status)) {
-      printf(YELLOW "\nCompleted tracing pid %d\n" CLEAR, pid_child);
+      printf(YELLOW "Completed tracing pid %d\n" CLEAR, pid_child);
       break;
     }
   }

@@ -20,12 +20,12 @@ void prod(int s, int c)
 	}
 };
 
-int main(char** argv, int argc)
+int main(int argc, char** argv)
 {
 	int res;
-	int *t = malloc(65536);
+	int *t = (int *) malloc(2);
 	res = sum(argc);
-	int *r = malloc(65536);
+	int *r = (int *) malloc(300000);
 	prod(res, argc);
 
 	return 0;

@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include "retdwarf.h"
 
+
 Dwarf_Addr getSubprogAddr(Dwarf_Debug dbg_info, Dwarf_Die subprogram, char *symbol)
 {
   char *subprogram_name;
@@ -40,6 +41,7 @@ Dwarf_Addr getSubprogAddr(Dwarf_Debug dbg_info, Dwarf_Die subprogram, char *symb
     return 0;
 }
 
+
 Dwarf_Addr getSubprogDie(Dwarf_Debug dbg_info, Dwarf_Die current_die, Dwarf_Bool is_info, char *symbol)
 {
   Dwarf_Addr brkpoint_addr = 0;
@@ -53,8 +55,11 @@ Dwarf_Addr getSubprogDie(Dwarf_Debug dbg_info, Dwarf_Die current_die, Dwarf_Bool
       fprintf(stderr, RED "Error in dwarf_tag\n" CLEAR);
       exit(EXIT_FAILURE);
     }
-    if(tag == DW_TAG_subprogram)
-      return getSubprogAddr(dbg_info, current_die, symbol);
+    if(tag == DW_TAG_subprogram) {
+      brkpoint_addr = getSubprogAddr(dbg_info, current_die, symbol);
+      if(brkpoint_addr != 0)
+        return brkpoint_addr;
+    }
 
     ret = dwarf_child(current_die, &child_die, NULL);
     if(ret == DW_DLV_ERROR) {
@@ -81,6 +86,7 @@ Dwarf_Addr getSubprogDie(Dwarf_Debug dbg_info, Dwarf_Die current_die, Dwarf_Bool
   }
   return 0;
 }
+
 
 Dwarf_Addr startDwarfAnalysis(Dwarf_Debug dbg_info, char *symbol)
 {
@@ -118,6 +124,7 @@ Dwarf_Addr startDwarfAnalysis(Dwarf_Debug dbg_info, char *symbol)
 
   return brkpoint_addr;
 }
+
 
 Dwarf_Addr dwarfAnalysis(char* path, char* symbol)
 {
