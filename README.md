@@ -3,11 +3,11 @@ Memory Layout Parser
 
 `memlay` prints the memory application's layout (i.e. text, data, heap and stack segments) in a given breakpoint of execution. It is similar to `pmap`, since it reads the `/proc/<pid>/maps`file.
 
-# Compilation
+## Compilation
 
 `g++ -o memlay memlay.c retdwarf.c -ldwarf -lelf`
 
-# Implementation
+## Implementation
 
 For instance, the breakpoint may be any symbol defined for local functions in user's application. This includes statically linked libraries, since they will part of the final executable. On the other hand, a breakpoint cannot be defined for those functions from external (dynamic) libraries.
 
@@ -15,11 +15,13 @@ The program uses de `libdwarf` to retrieve the function's address from DWARF for
 
 Memlay was not extensively tested.
 
-# Progress and current features
+## Progress and current features
 
 Only one breakpoint may be determined.
 
-Verbose execution only.
+Flag `-v` enables verbose mode.
 
-# Usage
-memlay \<breakpoint\> \<executable\> \<args\>
+Flag `-a` enables printing of text, data and bss sections layouts as well.
+
+## Usage
+`memlay [-v|-a] <breakpoint> <executable> <args>`

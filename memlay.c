@@ -13,22 +13,23 @@
 #define HEAP                3
 #define STACK               4
 
+static uint8_t opt_all, opt_verbose;
 
 void getSection(FILE *fs, char *readbuf, uint8_t section)
 {
   char *start_addr, *end_addr;
   int offset;
 
-  if(section == TEXT)
-    printf(GREEN "[Text section]\n" CLEAR);
-  if(section == DATA)
-    printf(GREEN "[Data section]\n" CLEAR);
-  if(section == BSS)
-    printf(GREEN "[Bss section]\n" CLEAR);
+  if(section == TEXT && opt_all)
+    printf(GREEN "[Text section]  " CLEAR);
+  if(section == DATA && opt_all)
+    printf(GREEN "[Data section]  " CLEAR);
+  if(section == BSS && opt_all)
+    printf(GREEN "[Bss section]   " CLEAR);
   if(section == HEAP)
-    printf(GREEN "[Heap]\n" CLEAR);
+    printf(GREEN "[Heap]          " CLEAR);
   if(section == STACK)
-    printf(GREEN "[Stack]\n" CLEAR);
+    printf(GREEN "[Stack]         " CLEAR);
 
   offset = ftell(fs);
 
@@ -49,12 +50,14 @@ void getSection(FILE *fs, char *readbuf, uint8_t section)
   }
 
   start_addr = strtok(readbuf, "-");
-  printf(GREEN "%s" CLEAR, start_addr);
+  if(opt_all || section > 2)
+    printf(GREEN "%s" CLEAR, start_addr);
 
   fseek(fs, offset + strlen(start_addr), SEEK_SET);
   fgets(readbuf, BUF_LENGTH, fs);
   end_addr = strtok(readbuf, " ");
-  printf(GREEN "%s\n" CLEAR, end_addr);
+  if(opt_all || section > 2)
+    printf(GREEN "%s\n" CLEAR, end_addr);
 };
 
 
@@ -94,13 +97,14 @@ void parseMapsFile(char *maps_path, char *prog_path)
 void printLayout(pid_t pid, char* prog_path)
 {
   char* maps_path = (char*) malloc(16); /* 'pid' may have at most 5 digits */
+  static int count = 1;
 
-  printf(YELLOW "\nPrinting the layout:\n\n" CLEAR);
   if(sprintf(maps_path, "/proc/%d/maps", pid) < 0)
-    fprintf(stderr, RED "Error to parse the path to \"maps\"\n" CLEAR);
+    fprintf(stderr, RED "Error parsing the path to 'maps' file\n" CLEAR);
 
+  printf(GREEN "----> [%d]\n" CLEAR, count);
+  count++;
   parseMapsFile(maps_path, prog_path);
-  printf("\n");
 };
 
 
@@ -138,6 +142,28 @@ void adjustRegisters(pid_t pid, Dwarf_Addr sym_addr, long orig_data, long trap)
 };
 
 
+void getOpt(int argc, char** argv)
+{
+  /* "a" = show text, data and bss sections as well
+   * "v" = verbose mode
+   */
+  int opt = getopt(argc, argv, "va");
+
+  while(opt != -1) {
+    if(opt == 'a')
+      opt_all = 1;
+    else if (opt == 'v')
+      opt_verbose = 1;
+    else if(opt == '?') {
+      fprintf(stderr, RED "Error: option %c not recognized\n" CLEAR, optopt);
+      exit(EXIT_FAILURE);
+    }
+
+    opt = getopt(argc, argv, "va");
+  }
+};
+
+
 int main(int argc, char** argv)
 {
   int status;
@@ -145,25 +171,27 @@ int main(int argc, char** argv)
   pid_t pid_child;
   Dwarf_Addr sym_addr;
 
-  if(argc < 3) {
-    printf("Usage: memlay <breakpoint> <program>\n");
+  getOpt(argc, argv);
+  if(argc < 3 || argc - optind < 2) {
+    printf("Usage: memlay [-a|-v] <breakpoint> <program>\n");
     exit(EXIT_SUCCESS);
   }
 
-  char* sym_name = (char*) malloc(strlen(argv[1]));
-  char* prog_path = (char*) malloc(strlen(argv[2]));
-
-  strcpy(prog_path, argv[2]);
-  strcpy(sym_name, argv[1]);
+  char* sym_name = (char*) malloc(strlen(argv[optind]));
+  char* prog_path = (char*) malloc(strlen(argv[optind+1]));
+  strcpy(prog_path, argv[optind+1]);
+  strcpy(sym_name, argv[optind]);
 
   sym_addr = dwarfAnalysis(prog_path, sym_name);
   if(sym_addr == 0) {
-    fprintf(stderr, RED "Error: " CLEAR "symbol not found\n");
+    fprintf(stderr, RED "Error: symbol not found\n" CLEAR);
     exit(EXIT_FAILURE);
   }
-  else
+
+  if(opt_verbose) {
     printf(GREEN "Symbol found\n" CLEAR);
-  printf(YELLOW "Breakpoint at %llx\n" CLEAR, sym_addr);
+    printf(YELLOW "Breakpoint at %llx\n" CLEAR, sym_addr);
+  }
 
   pid_child = fork();
   if(pid_child == -1) {
@@ -183,13 +211,14 @@ int main(int argc, char** argv)
   }
 
   wait(&status);
-  printf(YELLOW "Beginning of the analysis of process %d (%s)\n" CLEAR, pid_child, prog_path);
 
-  /* Since  the  value  returned by a successful PTRACE_PEEK* request may be
-   * -1, the caller must clear errno before the  call,  and  then  check  it
-   * afterward to determine whether or not an error occurred.
+  if(opt_verbose)
+    printf(YELLOW "Beginning of the analysis of process %d (%s)\n" CLEAR, pid_child, prog_path);
+
+  /* Since the value returned by a successful PTRACE_PEEK* request may be
+   * -1, the caller must clear errno before the  call, and then check it
+   * afterwards to determine whether or not an error occurred.
    */
-
   errno = 0;
   orig_data = ptrace(PTRACE_PEEKDATA, pid_child, sym_addr, NULL);
   if(orig_data == -1) {
@@ -213,14 +242,15 @@ int main(int argc, char** argv)
     wait(&status);
 
     if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP) {
-      printf(YELLOW "Hit the breakpoint %llx\n" CLEAR, sym_addr);
-
+      if(opt_verbose)
+        printf(YELLOW "Hit the breakpoint %llx\n" CLEAR, sym_addr);
       printLayout(pid_child, prog_path);
       adjustRegisters(pid_child, sym_addr, orig_data, trap);
     }
 
     if(WIFEXITED(status)) {
-      printf(YELLOW "Completed tracing pid %d\n" CLEAR, pid_child);
+      if(opt_verbose)
+        printf(YELLOW "Completed tracing pid %d\n" CLEAR, pid_child);
       break;
     }
   }

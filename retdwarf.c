@@ -5,7 +5,7 @@
 #include "retdwarf.h"
 
 
-Dwarf_Addr getSubprogAddr(Dwarf_Debug dbg_info, Dwarf_Die subprogram, char *symbol)
+static Dwarf_Addr getSubprogAddr(Dwarf_Debug dbg_info, Dwarf_Die subprogram, char *symbol)
 {
   char *subprogram_name;
   Dwarf_Attribute* attrs;
@@ -17,7 +17,7 @@ Dwarf_Addr getSubprogAddr(Dwarf_Debug dbg_info, Dwarf_Die subprogram, char *symb
     exit(EXIT_FAILURE);
   }
 
-  if(strncmp(subprogram_name, symbol, strlen(symbol)) == 0) {
+  if(strncmp(subprogram_name, symbol, strlen(subprogram_name)) == 0) {
     if(dwarf_attrlist(subprogram, &attrs, &attrcount, NULL) != DW_DLV_OK) {
       fprintf(stderr, RED "Error in dwarf_attrlist\n" CLEAR);
       exit(EXIT_FAILURE);
@@ -42,53 +42,54 @@ Dwarf_Addr getSubprogAddr(Dwarf_Debug dbg_info, Dwarf_Die subprogram, char *symb
 }
 
 
-Dwarf_Addr getSubprogDie(Dwarf_Debug dbg_info, Dwarf_Die current_die, Dwarf_Bool is_info, char *symbol)
+static Dwarf_Addr getSubprogDie(Dwarf_Debug dbg_info, Dwarf_Die current_die, Dwarf_Bool is_info, char *symbol)
 {
   Dwarf_Addr brkpoint_addr = 0;
   Dwarf_Die child_die, sibling_die;
   Dwarf_Half tag;
   int ret;
 
-  while(1)
-  {
-    if(dwarf_tag(current_die, &tag, NULL) != DW_DLV_OK) {
-      fprintf(stderr, RED "Error in dwarf_tag\n" CLEAR);
-      exit(EXIT_FAILURE);
-    }
-    if(tag == DW_TAG_subprogram) {
-      brkpoint_addr = getSubprogAddr(dbg_info, current_die, symbol);
-      if(brkpoint_addr != 0)
-        return brkpoint_addr;
-    }
-
-    ret = dwarf_child(current_die, &child_die, NULL);
-    if(ret == DW_DLV_ERROR) {
-      fprintf(stderr, RED "Error in dwarf_child\n" CLEAR);
-      exit(EXIT_FAILURE);
-    }
-    else if(ret == DW_DLV_OK) {
-      brkpoint_addr = getSubprogDie(dbg_info, child_die, is_info, symbol);
-      dwarf_dealloc(dbg_info, child_die, DW_DLA_DIE);
-      if(brkpoint_addr != 0)
-        return brkpoint_addr;
-    }
-    /* DW_DLV_OK and DW_DLV_NO_ENTRY */
-    ret = dwarf_siblingof_b(dbg_info, current_die, is_info, &sibling_die, NULL);
-    if(ret == DW_DLV_ERROR) {
-      fprintf(stderr, RED "Error in dwarf_siblingof_b\n" CLEAR);
-      exit(EXIT_FAILURE);
-    }
-    if(ret == DW_DLV_NO_ENTRY)
-      break;
-    /* DW_DLV_OK */
-    dwarf_dealloc(dbg_info, current_die, DW_DLA_DIE);
-    current_die = sibling_die;
+  if(dwarf_tag(current_die, &tag, NULL) != DW_DLV_OK) {
+    fprintf(stderr, RED "Error in dwarf_tag\n" CLEAR);
+    exit(EXIT_FAILURE);
   }
+  if(tag == DW_TAG_subprogram) {
+    brkpoint_addr = getSubprogAddr(dbg_info, current_die, symbol);
+    if(brkpoint_addr != 0)
+      return brkpoint_addr;
+  }
+
+  ret = dwarf_child(current_die, &child_die, NULL);
+  if(ret == DW_DLV_ERROR) {
+    fprintf(stderr, RED "Error in dwarf_child\n" CLEAR);
+    exit(EXIT_FAILURE);
+  }
+  else if(ret == DW_DLV_OK) {
+    brkpoint_addr = getSubprogDie(dbg_info, child_die, is_info, symbol);
+    dwarf_dealloc(dbg_info, child_die, DW_DLA_DIE);
+    if(brkpoint_addr != 0)
+      return brkpoint_addr;
+  }
+
+  /* DW_DLV_OK and DW_DLV_NO_ENTRY */
+  ret = dwarf_siblingof_b(dbg_info, current_die, is_info, &sibling_die, NULL);
+  if(ret == DW_DLV_ERROR) {
+    fprintf(stderr, RED "Error in dwarf_siblingof_b\n" CLEAR);
+    exit(EXIT_FAILURE);
+  }
+  else if(ret == DW_DLV_OK) {
+    brkpoint_addr = getSubprogDie(dbg_info, sibling_die, is_info, symbol);
+    dwarf_dealloc(dbg_info, sibling_die, DW_DLA_DIE);
+    if(brkpoint_addr != 0)
+      return brkpoint_addr;
+  }
+
+  /* DW_DLV_NO_ENTRY */
   return 0;
 }
 
 
-Dwarf_Addr startDwarfAnalysis(Dwarf_Debug dbg_info, char *symbol)
+static Dwarf_Addr startDwarfAnalysis(Dwarf_Debug dbg_info, char *symbol)
 {
   Dwarf_Addr brkpoint_addr = 0;
   Dwarf_Unsigned next_compilation_unit_hdr;
