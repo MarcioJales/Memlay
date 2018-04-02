@@ -12,18 +12,14 @@ static Dwarf_Addr getSubprogAddr(Dwarf_Debug dbg_info, Dwarf_Die subprogram, cha
   Dwarf_Addr brkpoint_addr;
   Dwarf_Signed attrcount, it;
 
-  if(dwarf_diename(subprogram, &subprogram_name, NULL) != DW_DLV_OK) {
-    fprintf(stderr, RED "Could not find the attribute name for the subprogram\n" CLEAR);
-    exit(EXIT_FAILURE);
-  }
-
-  if(strncmp(subprogram_name, symbol, strlen(subprogram_name)) == 0) {
-    if(dwarf_attrlist(subprogram, &attrs, &attrcount, NULL) != DW_DLV_OK) {
-      fprintf(stderr, RED "Error in dwarf_attrlist\n" CLEAR);
-      exit(EXIT_FAILURE);
-    }
-    for(it = 0; it < attrcount; it++)
-    {
+  if(dwarf_diename(subprogram, &subprogram_name, NULL) == DW_DLV_OK) {
+    if(strncmp(subprogram_name, symbol, strlen(subprogram_name)) == 0) {
+      if(dwarf_attrlist(subprogram, &attrs, &attrcount, NULL) != DW_DLV_OK) {
+        fprintf(stderr, RED "Error in dwarf_attrlist\n" CLEAR);
+        exit(EXIT_FAILURE);
+      }
+      for(it = 0; it < attrcount; it++)
+      {
         Dwarf_Half attrcode;
 
         if(dwarf_whatattr(attrs[it], &attrcode, NULL) != DW_DLV_OK) {
@@ -35,10 +31,11 @@ static Dwarf_Addr getSubprogAddr(Dwarf_Debug dbg_info, Dwarf_Die subprogram, cha
           dwarf_formaddr(attrs[it], &brkpoint_addr, 0);
           return brkpoint_addr;
         }
+      }
     }
   }
-  else
-    return 0;
+  /* != DW_DLV_OK */
+  return 0;
 }
 
 
@@ -100,7 +97,8 @@ static Dwarf_Addr startDwarfAnalysis(Dwarf_Debug dbg_info, char *symbol)
   {
     Dwarf_Die no_die = 0, compilation_unit_die;
 
-    ret = dwarf_next_cu_header_c(dbg_info, is_info, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &next_compilation_unit_hdr, NULL);
+    ret = dwarf_next_cu_header_c(dbg_info, is_info, NULL, NULL, NULL,
+                                 NULL, NULL, NULL, NULL, NULL, &next_compilation_unit_hdr, NULL);
     if(ret == DW_DLV_ERROR) {
       fprintf(stderr, RED "Error in dwarf_next_cu_header\n" CLEAR);
       exit(EXIT_FAILURE);

@@ -203,7 +203,7 @@ int main(int argc, char** argv)
       fprintf(stderr, RED "Failed to start tracing: %s\n" CLEAR, strerror(errno));
       exit(EXIT_FAILURE);
     }
-    if(execv(prog_path, argv + 2) == -1) {
+    if(execv(prog_path, argv + optind + 1) == -1) {
       fprintf(stderr, RED "Failed to start the tracee: %s\n" CLEAR, strerror(errno));
       exit(EXIT_FAILURE);
     }

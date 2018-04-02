@@ -25,5 +25,9 @@ Flag `-v` enables verbose mode.
 
 Flag `-a` enables printing of text, data and bss sections layouts as well.
 
+## Known issues
+
+Program does not handle functions with `DW_AT_inline` attributes properly.
+
 ## Usage
 `memlay [-v|-a] <breakpoint> <executable> <args>`
