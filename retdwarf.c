@@ -15,7 +15,7 @@ static Dwarf_Addr getSubprogAddr(Dwarf_Debug dbg_info, Dwarf_Die subprogram, cha
   if(dwarf_diename(subprogram, &subprogram_name, NULL) == DW_DLV_OK) {
     if(strncmp(subprogram_name, symbol, strlen(subprogram_name)) == 0) {
       if(dwarf_attrlist(subprogram, &attrs, &attrcount, NULL) != DW_DLV_OK) {
-        fprintf(stderr, RED "Error in dwarf_attrlist\n" CLEAR);
+        fprintf(stderr, RED "Error in dwarf_attrlist" CLEAR "\n");
         exit(EXIT_FAILURE);
       }
       for(it = 0; it < attrcount; it++)
@@ -23,7 +23,7 @@ static Dwarf_Addr getSubprogAddr(Dwarf_Debug dbg_info, Dwarf_Die subprogram, cha
         Dwarf_Half attrcode;
 
         if(dwarf_whatattr(attrs[it], &attrcode, NULL) != DW_DLV_OK) {
-          fprintf(stderr, RED "Error in dwarf_whatattr\n" CLEAR);
+          fprintf(stderr, RED "Error in dwarf_whatattr" CLEAR "\n");
           exit(EXIT_FAILURE);
         }
 
@@ -47,7 +47,7 @@ static Dwarf_Addr getSubprogDie(Dwarf_Debug dbg_info, Dwarf_Die current_die, Dwa
   int ret;
 
   if(dwarf_tag(current_die, &tag, NULL) != DW_DLV_OK) {
-    fprintf(stderr, RED "Error in dwarf_tag\n" CLEAR);
+    fprintf(stderr, RED "Error in dwarf_tag" CLEAR "\n");
     exit(EXIT_FAILURE);
   }
   if(tag == DW_TAG_subprogram) {
@@ -58,7 +58,7 @@ static Dwarf_Addr getSubprogDie(Dwarf_Debug dbg_info, Dwarf_Die current_die, Dwa
 
   ret = dwarf_child(current_die, &child_die, NULL);
   if(ret == DW_DLV_ERROR) {
-    fprintf(stderr, RED "Error in dwarf_child\n" CLEAR);
+    fprintf(stderr, RED "Error in dwarf_child" CLEAR "\n");
     exit(EXIT_FAILURE);
   }
   else if(ret == DW_DLV_OK) {
@@ -71,7 +71,7 @@ static Dwarf_Addr getSubprogDie(Dwarf_Debug dbg_info, Dwarf_Die current_die, Dwa
   /* DW_DLV_OK and DW_DLV_NO_ENTRY */
   ret = dwarf_siblingof_b(dbg_info, current_die, is_info, &sibling_die, NULL);
   if(ret == DW_DLV_ERROR) {
-    fprintf(stderr, RED "Error in dwarf_siblingof_b\n" CLEAR);
+    fprintf(stderr, RED "Error in dwarf_siblingof_b" CLEAR "\n");
     exit(EXIT_FAILURE);
   }
   else if(ret == DW_DLV_OK) {
@@ -100,7 +100,7 @@ static Dwarf_Addr startDwarfAnalysis(Dwarf_Debug dbg_info, char *symbol)
     ret = dwarf_next_cu_header_c(dbg_info, is_info, NULL, NULL, NULL,
                                  NULL, NULL, NULL, NULL, NULL, &next_compilation_unit_hdr, NULL);
     if(ret == DW_DLV_ERROR) {
-      fprintf(stderr, RED "Error in dwarf_next_cu_header\n" CLEAR);
+      fprintf(stderr, RED "Error in dwarf_next_cu_header" CLEAR "\n");
       exit(EXIT_FAILURE);
     }
     else if(ret == DW_DLV_NO_ENTRY)
@@ -109,11 +109,11 @@ static Dwarf_Addr startDwarfAnalysis(Dwarf_Debug dbg_info, char *symbol)
     /* ret == DW_DLV_OK */
     ret = dwarf_siblingof_b(dbg_info, no_die, is_info, &compilation_unit_die, NULL);
     if(ret == DW_DLV_ERROR) {
-      fprintf(stderr, RED "Error in dwarf_siblingof_b\n" CLEAR);
+      fprintf(stderr, RED "Error in dwarf_siblingof_b" CLEAR "\n");
       exit(EXIT_FAILURE);
     }
     else if(ret == DW_DLV_NO_ENTRY) { /* Impossible case */
-      fprintf(stderr, RED "No DIE of Compilation Unit\n" CLEAR);
+      fprintf(stderr, RED "No DIE of Compilation Unit" CLEAR "\n");
       exit(EXIT_FAILURE);
     }
 
@@ -133,24 +133,24 @@ Dwarf_Addr dwarfAnalysis(char* path, char* symbol)
 
   fd = open(path, O_RDONLY);
   if(fd == -1) {
-    fprintf(stderr, RED "Failed to open: %s\n" CLEAR, strerror(errno));
+    fprintf(stderr, RED "Failed to open: %s" CLEAR "\n", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
   if(dwarf_init(fd, DW_DLC_READ, 0, 0, &dbg_info, NULL) != DW_DLV_OK) {
-    fprintf(stderr, RED "Failed to initialize DWARF\n" CLEAR);
+    fprintf(stderr, RED "Failed to initialize DWARF" CLEAR "\n");
     exit(EXIT_FAILURE);
   }
 
   brkpoint = startDwarfAnalysis(dbg_info, symbol);
 
   if(dwarf_finish(dbg_info, NULL) != DW_DLV_OK) {
-    fprintf(stderr, RED "Failed to finish DWARF\n" CLEAR);
+    fprintf(stderr, RED "Failed to finish DWARF" CLEAR "\n");
     exit(EXIT_FAILURE);
   }
 
   if(close(fd) == -1) {
-    fprintf(stderr, RED "Failed to close: %s\n" CLEAR, strerror(errno));
+    fprintf(stderr, RED "Failed to close: %s" CLEAR "\n", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
